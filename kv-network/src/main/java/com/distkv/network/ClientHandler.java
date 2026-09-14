@@ -20,11 +20,17 @@ public class ClientHandler implements Runnable {
 
     private final Socket socket;
     private final KeyValueStore store;
+    private final java.util.function.Function<Request, String> customExecutor;
     private volatile boolean running = true;
 
     public ClientHandler(Socket socket, KeyValueStore store) {
+        this(socket, store, null);
+    }
+
+    public ClientHandler(Socket socket, KeyValueStore store, java.util.function.Function<Request, String> customExecutor) {
         this.socket = socket;
         this.store = store;
+        this.customExecutor = customExecutor;
     }
 
     @Override
@@ -65,6 +71,9 @@ public class ClientHandler implements Runnable {
     }
 
     private String executeCommand(Request request) {
+        if (customExecutor != null) {
+            return customExecutor.apply(request);
+        }
         Command cmd = request.getCommand();
         switch (cmd) {
             case SET: {

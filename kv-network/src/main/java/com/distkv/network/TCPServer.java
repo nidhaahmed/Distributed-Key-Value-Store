@@ -22,6 +22,7 @@ public class TCPServer {
     private int port;
     private final KeyValueStore store;
     private final int threadPoolSize;
+    private final java.util.function.Function<com.distkv.network.protocol.Request, String> customExecutor;
 
     private ServerSocket serverSocket;
     private ExecutorService clientExecutor;
@@ -29,14 +30,20 @@ public class TCPServer {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public TCPServer(int port, KeyValueStore store) {
-        this("0.0.0.0", port, store, Math.max(8, Runtime.getRuntime().availableProcessors() * 4));
+        this("0.0.0.0", port, store, Math.max(8, Runtime.getRuntime().availableProcessors() * 4), null);
     }
 
     public TCPServer(String host, int port, KeyValueStore store, int threadPoolSize) {
+        this(host, port, store, threadPoolSize, null);
+    }
+
+    public TCPServer(String host, int port, KeyValueStore store, int threadPoolSize,
+                     java.util.function.Function<com.distkv.network.protocol.Request, String> customExecutor) {
         this.host = host;
         this.port = port;
         this.store = store;
         this.threadPoolSize = threadPoolSize;
+        this.customExecutor = customExecutor;
     }
 
     /**
@@ -84,7 +91,7 @@ public class TCPServer {
                 clientSocket.setTcpNoDelay(true);
                 clientSocket.setKeepAlive(true);
 
-                clientExecutor.submit(new ClientHandler(clientSocket, store));
+                clientExecutor.submit(new ClientHandler(clientSocket, store, customExecutor));
             } catch (IOException e) {
                 if (!running.get() || serverSocket.isClosed()) {
                     break;

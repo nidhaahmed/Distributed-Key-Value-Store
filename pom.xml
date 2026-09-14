@@ -16,6 +16,7 @@
         <module>kv-core</module>
         <module>kv-network</module>
         <module>kv-persistence</module>
+        <module>kv-cluster</module>
         <module>kv-server</module>
     </modules>
 

@@ -15,6 +15,11 @@ public class ServerConfig {
     private FsyncPolicy fsyncPolicy = FsyncPolicy.EVERYSEC;
     private boolean lruEnabled = false;
     private int lruCapacity = 100_000;
+    private boolean clusterEnabled = false;
+    private String nodeId = "node-1";
+    private String clusterNodes = null;
+    private int virtualNodes = 150;
+    private String routingMode = "PROXY";
 
     public ServerConfig() {}
 
@@ -87,6 +92,51 @@ public class ServerConfig {
 
     public ServerConfig setLruCapacity(int lruCapacity) {
         this.lruCapacity = lruCapacity;
+        return this;
+    }
+
+    public boolean isClusterEnabled() {
+        return clusterEnabled;
+    }
+
+    public ServerConfig setClusterEnabled(boolean clusterEnabled) {
+        this.clusterEnabled = clusterEnabled;
+        return this;
+    }
+
+    public String getNodeId() {
+        return nodeId;
+    }
+
+    public ServerConfig setNodeId(String nodeId) {
+        this.nodeId = nodeId;
+        return this;
+    }
+
+    public String getClusterNodes() {
+        return clusterNodes;
+    }
+
+    public ServerConfig setClusterNodes(String clusterNodes) {
+        this.clusterNodes = clusterNodes;
+        return this;
+    }
+
+    public int getVirtualNodes() {
+        return virtualNodes;
+    }
+
+    public ServerConfig setVirtualNodes(int virtualNodes) {
+        this.virtualNodes = virtualNodes;
+        return this;
+    }
+
+    public String getRoutingMode() {
+        return routingMode;
+    }
+
+    public ServerConfig setRoutingMode(String routingMode) {
+        this.routingMode = routingMode;
         return this;
     }
 }

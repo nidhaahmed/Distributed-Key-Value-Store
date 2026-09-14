@@ -22,6 +22,7 @@ public class KVServerApp {
     private final ServerConfig config;
     private KeyValueStore store;
     private TCPServer tcpServer;
+    private com.distkv.cluster.ClusterRouter clusterRouter;
 
     public KVServerApp(ServerConfig config) {
         this.config = config;
@@ -46,11 +47,46 @@ public class KVServerApp {
             this.store = PersistentKeyValueStore.create(store, aofFile, config.getFsyncPolicy());
         }
 
-        // 3. Start Multi-Threaded TCP Server
-        this.tcpServer = new TCPServer(config.getHost(), config.getPort(), store, config.getThreadPoolSize());
+        // 3. Setup Cluster Router if cluster mode is enabled
+        java.util.function.Function<com.distkv.network.protocol.Request, String> commandExecutor = null;
+        if (config.isClusterEnabled() && config.getClusterNodes() != null) {
+            log.info("Configuring cluster mode for node '{}'", config.getNodeId());
+            com.distkv.cluster.ConsistentHashRing ring = new com.distkv.cluster.ConsistentHashRing(config.getVirtualNodes());
+            com.distkv.cluster.Node selfNode = null;
+
+            String[] nodeDefs = config.getClusterNodes().split(",");
+            for (String def : nodeDefs) {
+                String[] parts = def.trim().split("@");
+                if (parts.length == 2) {
+                    String id = parts[0].trim();
+                    String[] addr = parts[1].trim().split(":");
+                    com.distkv.cluster.Node node = new com.distkv.cluster.Node(id, addr[0].trim(), Integer.parseInt(addr[1].trim()));
+                    ring.addNode(node);
+                    if (id.equalsIgnoreCase(config.getNodeId())) {
+                        selfNode = node;
+                    }
+                }
+            }
+
+            if (selfNode == null) {
+                selfNode = new com.distkv.cluster.Node(config.getNodeId(), config.getHost(), config.getPort());
+                ring.addNode(selfNode);
+            }
+
+            com.distkv.cluster.ClusterRouter.RoutingMode mode = "REDIRECT".equalsIgnoreCase(config.getRoutingMode())
+                    ? com.distkv.cluster.ClusterRouter.RoutingMode.REDIRECT
+                    : com.distkv.cluster.ClusterRouter.RoutingMode.PROXY;
+
+            this.clusterRouter = new com.distkv.cluster.ClusterRouter(selfNode, ring, mode);
+            commandExecutor = req -> clusterRouter.executeRoutedCommand(req, store);
+            log.info("Cluster router initialized: self={}, mode={}, clusterSize={}", selfNode, mode, ring.getNodeCount());
+        }
+
+        // 4. Start Multi-Threaded TCP Server
+        this.tcpServer = new TCPServer(config.getHost(), config.getPort(), store, config.getThreadPoolSize(), commandExecutor);
         this.tcpServer.start();
 
-        // 4. Register JVM Graceful Shutdown Hook
+        // 5. Register JVM Graceful Shutdown Hook
         Runtime.getRuntime().addShutdownHook(new Thread(this::stop, "kv-shutdown-hook"));
 
         log.info("Distributed Key-Value Store node is ready to accept client connections on port {}", config.getPort());
@@ -58,6 +94,13 @@ public class KVServerApp {
 
     public synchronized void stop() {
         log.info("Initiating graceful server shutdown...");
+        if (clusterRouter != null) {
+            try {
+                clusterRouter.close();
+            } catch (Exception e) {
+                log.warn("Error closing cluster router: {}", e.getMessage());
+            }
+        }
         if (tcpServer != null) {
             tcpServer.stop();
         }
@@ -106,6 +149,17 @@ public class KVServerApp {
                 config.setLruCapacity(Integer.parseInt(args[++i]));
             } else if ("--no-aof".equals(args[i])) {
                 config.setPersistenceEnabled(false);
+            } else if ("--cluster".equals(args[i])) {
+                config.setClusterEnabled(true);
+            } else if ("--node-id".equals(args[i]) && i + 1 < args.length) {
+                config.setNodeId(args[++i]);
+            } else if ("--cluster-nodes".equals(args[i]) && i + 1 < args.length) {
+                config.setClusterNodes(args[++i]);
+                config.setClusterEnabled(true);
+            } else if ("--routing-mode".equals(args[i]) && i + 1 < args.length) {
+                config.setRoutingMode(args[++i]);
+            } else if ("--vnodes".equals(args[i]) && i + 1 < args.length) {
+                config.setVirtualNodes(Integer.parseInt(args[++i]));
             }
         }
 
