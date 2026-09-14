@@ -87,6 +87,18 @@ Targeted for backend infrastructure engineering (Cisco, NetApp, Nutanix).
   - When capacity threshold is reached, automatically evicts the LRU item (`tail.prev`).
   - Thread-safe via read-write synchronization.
 
+### Milestone 2: 3-Node Cluster, Consistent Hashing & Partition Routing
+
+- [x] **Phase 6: Distributed Partitioning & Routing (`kv-cluster`)**
+  - **Consistent Hashing Ring**: Implemented with 150 virtual nodes per physical node (`TreeMap` with $O(\log(N \cdot V))$ lookup).
+  - **Uniform Key Distribution**: Empirically validated across 15,000 keys (each node receives ~33.3% of traffic within standard deviation).
+  - **Minimal Disruption on Rebalancing**: Adding a new node migrates only ~25% of keys; remaining ~75% remain completely unaffected.
+  - **Preference List**: Clockwise ring traversal generating distinct physical replica candidates for quorum replication.
+  - **Cluster Routing Engine**:
+    - **Proxy Mode**: Transparent single-system image (any cluster node accepts writes/reads and proxies to the partition owner).
+    - **Redirect Mode**: High-performance Redis Cluster style `-MOVED <nodeId> <host>:<port>` redirection.
+  - **Rebalancer**: Automatic partition rebalancing and migration on dynamic node joins and leaves.
+
 ---
 
 ## Project Structure
@@ -115,9 +127,15 @@ distributed-key-value-store/
 │   ├── AOFReader.java                     <-- Recovery replay parser
 │   ├── FsyncPolicy.java                   <-- Flush synchronization policies
 │   └── PersistentKeyValueStore.java       <-- Durable decorator
+├── kv-cluster/                            <-- Distributed partitioning & routing
+│   ├── Node.java                          <-- Physical node model & state
+│   ├── HashFunction.java                  <-- MurmurHash3 64-bit implementation
+│   ├── ConsistentHashRing.java            <-- Ring with virtual nodes (150 vnodes)
+│   ├── ClusterRouter.java                 <-- Proxy & redirect request router
+│   └── Rebalancer.java                    <-- Partition migration & rebalancing
 └── kv-server/                             <-- Main application bootstrap
-    ├── KVServerApp.java                   <-- Main executable entrypoint
-    └── ServerConfig.java                  <-- CLI and server options
+    ├── KVServerApp.java                   <-- Standalone & cluster node runner
+    └── ServerConfig.java                  <-- CLI and cluster config options
 ```
 
 ---
@@ -194,11 +212,6 @@ BYE
 ---
 
 ## Upcoming Milestones Roadmap
-
-- **Milestone 2: 3-Node Cluster & Partitioning (Phase 6)**
-  - Consistent Hashing with virtual nodes (150 vnodes/node) for uniform key distribution.
-  - Partition key routing and coordinator proxy mode (`-MOVED` redirection).
-  - Dynamic node addition/removal and partition rebalancing.
 
 - **Milestone 3: Replication & High Availability (Phases 7-8)**
   - Primary-replica replication ($N=2, 3$).
