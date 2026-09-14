@@ -73,6 +73,12 @@ public class ClientHandler implements Runnable {
                 store.set(key, value);
                 return ResponseWriter.ok();
             }
+            case PUT: {
+                String key = request.getArg(0);
+                String value = request.getArg(1);
+                String oldVal = store.put(key, value);
+                return oldVal != null ? "VALUE " + oldVal + ResponseWriter.CRLF : ResponseWriter.ok();
+            }
             case GET: {
                 String key = request.getArg(0);
                 String val = store.get(key);

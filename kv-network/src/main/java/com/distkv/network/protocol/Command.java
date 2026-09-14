@@ -5,6 +5,7 @@ package com.distkv.network.protocol;
  */
 public enum Command {
     SET(2, 2, "SET <key> <value>"),
+    PUT(2, 2, "PUT <key> <value>"),
     GET(1, 1, "GET <key>"),
     DELETE(1, 1, "DELETE <key>"),
     DEL(1, 1, "DEL <key>"),

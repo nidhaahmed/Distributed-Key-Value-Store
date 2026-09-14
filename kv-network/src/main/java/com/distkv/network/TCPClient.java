@@ -39,13 +39,29 @@ public class TCPClient implements AutoCloseable {
         return reader.readLine();
     }
 
+    private static String quote(String s) {
+        if (s == null) return "";
+        if (s.contains(" ") || s.contains("\t") || s.contains("\"")) {
+            return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        }
+        return s;
+    }
+
     public boolean set(String key, String value) throws IOException {
-        String response = sendCommand("SET " + key + " " + value);
+        String response = sendCommand("SET " + quote(key) + " " + quote(value));
         return "OK".equalsIgnoreCase(response);
     }
 
+    public String put(String key, String value) throws IOException {
+        String response = sendCommand("PUT " + quote(key) + " " + quote(value));
+        if (response != null && response.startsWith("VALUE ")) {
+            return response.substring(6);
+        }
+        return null;
+    }
+
     public String get(String key) throws IOException {
-        String response = sendCommand("GET " + key);
+        String response = sendCommand("GET " + quote(key));
         if (response == null || "NOT_FOUND".equalsIgnoreCase(response)) {
             return null;
         }
@@ -56,12 +72,12 @@ public class TCPClient implements AutoCloseable {
     }
 
     public boolean delete(String key) throws IOException {
-        String response = sendCommand("DELETE " + key);
+        String response = sendCommand("DELETE " + quote(key));
         return "DELETED".equalsIgnoreCase(response);
     }
 
     public boolean exists(String key) throws IOException {
-        String response = sendCommand("EXISTS " + key);
+        String response = sendCommand("EXISTS " + quote(key));
         return "EXISTS 1".equalsIgnoreCase(response);
     }
 

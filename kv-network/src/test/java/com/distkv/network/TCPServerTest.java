@@ -43,6 +43,10 @@ public class TCPServerTest {
             assertTrue(client.set("user:1", "Nidha"));
             assertEquals("Nidha", client.get("user:1"));
 
+            // PUT (updates and returns previous value)
+            assertEquals("Nidha", client.put("user:1", "Nidha Ahmed"));
+            assertEquals("Nidha Ahmed", client.get("user:1"));
+
             // EXISTS
             assertTrue(client.exists("user:1"));
             assertFalse(client.exists("unknown:key"));
